@@ -1,0 +1,25 @@
+services:
+  - type: web
+    name: paydraft
+    runtime: node
+    plan: free
+    buildCommand: npm ci
+    startCommand: npm start
+    healthCheckPath: /api/config
+    envVars:
+      - key: PAYPAL_ENV
+        value: sandbox
+      - key: PAYPAL_CLIENT_ID
+        sync: false
+      - key: PAYPAL_CLIENT_SECRET
+        sync: false
+      - key: PAYPAL_WEBHOOK_ID
+        sync: false
+      - key: CEREBRAS_API_KEY
+        sync: false
+      - key: CEREBRAS_MODEL
+        value: qwen-3.8-27b
+      - key: CEREBRAS_REASONING_EFFORT
+        value: low
+      - key: INVOICER_BUSINESS_NAME
+        sync: false

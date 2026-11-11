@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>PayDraft</title>
+  <meta name="description" content="Turn messy client messages into PayPal invoices, and let an AI agent chase payment." />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='8' fill='%23163a5f'/><path d='M10 8h8a6 6 0 0 1 0 12h-4v4h-4z' fill='white'/></svg>" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ag-grid-community@32.3.3/styles/ag-grid.css" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ag-grid-community@32.3.3/styles/ag-theme-quartz.css" />
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <svg viewBox="0 0 32 32" width="28" height="28" aria-hidden="true"><rect width="32" height="32" rx="8" fill="var(--brand)"/><path d="M10 8h8a6 6 0 0 1 0 12h-4v4h-4z" fill="#fff"/></svg>
+      <span>PayDraft</span>
+    </div>
+    <p class="tagline">From “can you bill me for this?” to paid, with you approving every step.</p>
+    <div class="badges">
+      <span id="envBadge" class="badge">PayPal …</span>
+      <span id="modelBadge" class="badge subtle"></span>
+    </div>
+  </header>
+
+  <main class="layout">
+    <section class="agent" aria-label="Agent">
+      <div class="thread" id="thread">
+        <div class="welcome" id="welcome">
+          <h1>Who are we billing?</h1>
+          <p>Paste a client email or chat, drop in a screenshot, or dictate a voice note. PayDraft writes the PayPal invoice, you approve it, and it chases payment for you.</p>
+          <div class="chips">
+            <button class="chip" data-sample="email">Try a sample client email</button>
+            <button class="chip" data-prompt="Who owes me money right now?">Who owes me money?</button>
+            <button class="chip" data-prompt="Chase every overdue invoice. Draft one reminder per invoice.">Chase everything overdue</button>
+          </div>
+        </div>
+      </div>
+
+      <form class="composer" id="composer">
+        <div class="attachments" id="attachments"></div>
+        <textarea id="input" rows="3" placeholder="Paste a client message, or ask “who hasn’t paid?”" aria-label="Message"></textarea>
+        <div class="composer-bar">
+          <div class="tools">
+            <label class="icon-btn" title="Attach screenshot">
+              <input type="file" id="file" accept="image/png,image/jpeg,image/webp,image/gif" multiple hidden />
+              <svg viewBox="0 0 24 24" width="18" height="18"><path d="M21 12.5 12.8 20.7a5 5 0 0 1-7.1-7.1l8.5-8.5a3.3 3.3 0 0 1 4.7 4.7l-8.5 8.5a1.7 1.7 0 0 1-2.4-2.4l7.8-7.8" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+            </label>
+            <button type="button" class="icon-btn" id="mic" title="Dictate a voice note" hidden>
+              <svg viewBox="0 0 24 24" width="18" height="18"><rect x="9" y="3" width="6" height="11" rx="3" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+            </button>
+          </div>
+          <button type="submit" class="btn primary" id="send">Send</button>
+        </div>
+      </form>
+    </section>
+
+    <section class="ledger" aria-label="Invoices">
+      <div class="kpis" id="kpis"></div>
+      <div class="panel">
+        <div class="panel-head">
+          <h2>Invoices</h2>
+          <div class="panel-tools">
+            <input id="quickFilter" type="search" placeholder="Filter…" aria-label="Filter invoices" />
+            <button class="btn ghost" id="refresh" title="Refresh from PayPal">Refresh</button>
+          </div>
+        </div>
+        <div id="grid" class="grid ag-theme-quartz"></div>
+      </div>
+      <div class="panel">
+        <div class="panel-head"><h2>Activity</h2><span class="live"><i></i>Live</span></div>
+        <ul class="feed" id="feed"><li class="empty">Payments and agent actions appear here as they happen.</li></ul>
+      </div>
+    </section>
+  </main>
+
+  <div class="toasts" id="toasts" aria-live="polite"></div>
+
+  <script src="https://cdn.jsdelivr.net/npm/ag-grid-community@32.3.3/dist/ag-grid-community.min.js"></script>
+  <script src="/app.js" type="module"></script>
+</body>
+</html>

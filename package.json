@@ -1,0 +1,26 @@
+{
+  "name": "paydraft",
+  "version": "1.0.0",
+  "description": "AI agent that turns messy client messages into PayPal invoices and chases payment",
+  "main": "index.js",
+  "directories": {
+    "lib": "lib"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node server.js",
+    "dev": "node --watch server.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "MIT",
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "@cerebras/cerebras_cloud_sdk": "^1.91.0",
+    "dotenv": "^18.0.10",
+    "express": "^4.22.3"
+  }
+}
