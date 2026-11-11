@@ -65,6 +65,7 @@ app.get("/api/events", (req, res) => {
 app.post("/api/webhooks/paypal", wrap(async (req, res) => {
   const event = req.body;
   const ok = await paypal.verifyWebhook(req.headers, event).catch(() => false);
+  console.log(`[webhook] ${event?.event_type} ${event?.id} verified=${ok}`);
   if (!ok) return res.status(400).json({ error: "signature verification failed" });
   const inv = event.resource?.invoice || event.resource;
   const num = inv?.detail?.invoice_number;
