@@ -6,6 +6,8 @@ PayDraft is an AI accounts-receivable agent for freelancers and small businesses
 
 Built for the PayPal AI Hackathon (2026).
 
+**Live demo:** https://paydraft-h3u4.onrender.com (PayPal sandbox; on the free tier, the first load can take ~30–50 s to wake up)
+
 ## The problem
 
 Freelancers lose hours every month turning client conversations into invoices and then chasing them. The details live in emails, Slack threads and WhatsApp messages ("14 hours at the €90 rate plus the test session, net 30 is fine"). Retyping them into an invoicing form is slow and error-prone. Chasing late payers is awkward, so it gets put off and cash flow suffers.
