@@ -16,12 +16,8 @@ Hi! Thanks again for jumping on the checkout redesign last week. Can you send me
 Please address it to Brightloop GmbH. Grazie!
 Sofia`;
 
-let sessionId;
-try { sessionId = sessionStorage.getItem("paydraft.session"); } catch {}
-if (!sessionId) {
-  sessionId = crypto.randomUUID();
-  try { sessionStorage.setItem("paydraft.session", sessionId); } catch {}
-}
+// Fresh conversation on every page load (clean demos; invoices live in PayPal anyway).
+const sessionId = crypto.randomUUID();
 
 const thread = $("#thread");
 const input = $("#input");
@@ -32,64 +28,66 @@ let invoices = [];
 // ---------- config ----------
 fetch("/api/config").then((r) => r.json()).then((c) => {
   const b = $("#envBadge");
-  b.textContent = c.mock ? "Mock PayPal" : c.paypalEnv === "live" ? "PayPal Live" : "PayPal Sandbox";
+  b.innerHTML = `<i></i>${c.mock ? "Mock PayPal" : c.paypalEnv === "live" ? "PayPal Live" : "PayPal Sandbox · connected"}`;
   if (c.mock) b.classList.add("mock");
   $("#modelBadge").textContent = `${c.provider} · ${c.model}`;
   if (!c.vision) $("#file").closest("label").hidden = true;
 });
 
 // ---------- grid ----------
-const dark = matchMedia("(prefers-color-scheme: dark)");
 const gridEl = $("#grid");
-const setGridTheme = () => { gridEl.className = "grid " + (dark.matches ? "ag-theme-quartz-dark" : "ag-theme-quartz"); };
-setGridTheme();
-dark.addEventListener("change", setGridTheme);
+gridEl.className = "grid ag-theme-quartz";
+
+const AVATAR_HUES = [228, 262, 192, 152, 24, 330, 48];
+function avatar(name) {
+  const initials = String(name || "?").split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0]).join("").toUpperCase();
+  let h = 0; for (const c of String(name)) h = (h * 31 + c.charCodeAt(0)) >>> 0;
+  return `<span class="avatar" style="--h:${AVATAR_HUES[h % AVATAR_HUES.length]}">${esc(initials)}</span>`;
+}
+
+function shortDate(iso) {
+  if (!iso) return "—";
+  return new Date(iso + "T12:00:00").toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" });
+}
+const RANK = (r) => (OPEN.includes(r.status) ? (r.days_overdue > 0 ? 0 : 1) : r.status === "CANCELLED" ? 3 : 2);
 
 function statusEl(row) {
   const s = document.createElement("span");
   const overdue = OPEN.includes(row.status) && row.days_overdue > 0;
   s.className = "status " + (overdue ? "OVERDUE" : row.status);
-  s.textContent = overdue ? "Overdue" : row.status.replace(/_/g, " ").toLowerCase();
+  const label = overdue ? `Overdue · ${row.days_overdue}d` : { MARKED_AS_PAID: "Paid", SENT: "Awaiting payment", UNPAID: "Awaiting payment" }[row.status] || row.status.replace(/_/g, " ").toLowerCase();
+  s.innerHTML = `<i></i>${esc(label)}`;
   return s;
 }
 
 const grid = agGrid.createGrid(gridEl, {
   rowData: [],
-  rowHeight: 50,
+  rowHeight: 60,
+  headerHeight: 44,
   getRowId: (p) => p.data.id,
   overlayNoRowsTemplate: '<span style="color:var(--muted)">No invoices yet. Paste a client message to draft your first one.</span>',
   defaultColDef: { sortable: true, resizable: true, suppressHeaderMenuButton: true, minWidth: 80 },
   columnDefs: [
-    { field: "number", headerName: "#", width: 90, flex: 0 },
+    { field: "number", headerName: "Invoice", width: 100, flex: 0, cellClass: "mono" },
     {
       field: "client", headerName: "Client", flex: 1.5, minWidth: 170,
       cellRenderer: (p) => {
         const d = document.createElement("div");
         d.className = "client-cell";
-        d.innerHTML = `${esc(p.data.client)}<small>${esc(p.data.email || "")}</small>`;
+        d.innerHTML = `${avatar(p.data.client)}<span><b>${esc(p.data.client)}</b><small>${esc(p.data.email || "")}</small></span>`;
         return d;
       },
       getQuickFilterText: (p) => `${p.data.client} ${p.data.email}`,
     },
-    { field: "total", headerName: "Amount", flex: 1, type: "rightAligned", valueFormatter: (p) => fmt(p.data.currency, p.value) },
-    { field: "due_amount", headerName: "Balance", flex: 1, type: "rightAligned", valueFormatter: (p) => fmt(p.data.currency, p.value) },
-    { field: "status", headerName: "Status", flex: 1, minWidth: 120, cellRenderer: (p) => statusEl(p.data) },
-    { field: "issued", headerName: "Issued", flex: 1, sort: "desc" },
-    { field: "due_date", headerName: "Due", flex: 1 },
-    {
-      field: "days_overdue", headerName: "Late", width: 90, flex: 0, type: "rightAligned",
-      cellRenderer: (p) => {
-        const s = document.createElement("span");
-        if (p.value > 0) { s.className = "overdue"; s.textContent = `${p.value}d`; } else s.textContent = "—";
-        return s;
-      },
-    },
+    { field: "total", headerName: "Amount", flex: 1, minWidth: 120, cellClass: "amount", valueFormatter: (p) => fmt(p.data.currency, p.value) },
+    { field: "status", headerName: "Status", flex: 1.3, minWidth: 170, cellRenderer: (p) => statusEl(p.data) },
+    { field: "due_date", headerName: "Due", flex: 0.9, minWidth: 110, valueFormatter: (p) => shortDate(p.value) },
     {
       headerName: "", colId: "actions", width: 130, flex: 0, sortable: false, resizable: false,
       cellRenderer: (p) => {
         const d = document.createElement("div");
         d.className = "row-actions";
-        if (p.data.payer_url) {
+        if (p.data.payer_url && OPEN.includes(p.data.status)) {
           const a = document.createElement("a");
           a.href = p.data.payer_url; a.target = "_blank"; a.rel = "noopener"; a.textContent = "Pay link";
           d.append(a);
@@ -114,7 +112,8 @@ async function loadInvoices(flashId) {
     const data = await r.json();
     if (!r.ok) throw new Error(data.error);
     invoices = data;
-    grid.setGridOption("rowData", invoices);
+    const ordered = [...invoices].sort((a, b) => RANK(a) - RANK(b) || String(b.issued).localeCompare(String(a.issued)) || String(b.number).localeCompare(String(a.number)));
+    grid.setGridOption("rowData", ordered);
     renderKpis();
     if (flashId) {
       const node = grid.getRowNode(flashId);
@@ -143,13 +142,19 @@ function renderKpis() {
   const o = moneyKpi(sumBy(open, "due_amount"));
   const od = moneyKpi(sumBy(overdue, "due_amount"));
   const pd = moneyKpi(sumBy(paid, "total"));
+  const ICON = {
+    out: '<path d="M4 7h16v10H4z M4 10h16" />',
+    late: '<circle cx="12" cy="12" r="8"/><path d="M12 8v4l3 2"/>',
+    paid: '<path d="M5 12.5l4.5 4.5L19 7.5"/>',
+    docs: '<path d="M7 3h7l4 4v14H7z M14 3v4h4"/>',
+  };
   const tiles = [
-    { label: "Outstanding", value: o.value, sub: o.extra ? `+ ${o.extra}` : `${open.length} open invoice${open.length === 1 ? "" : "s"}` },
-    { label: "Overdue", value: od.value, sub: overdue.length ? `${overdue.length} invoice${overdue.length === 1 ? "" : "s"} late` : "Nothing late", cls: overdue.length ? "bad" : "" },
-    { label: "Collected", value: pd.value, sub: pd.extra ? `+ ${pd.extra}` : `${paid.length} paid`, cls: "ok" },
-    { label: "Invoices", value: String(invoices.length), sub: `${invoices.filter((r) => r.status === "DRAFT").length} drafts in PayPal` },
+    { icon: "out", label: "Outstanding", value: o.value, sub: o.extra ? `+ ${o.extra}` : `${open.length} open invoice${open.length === 1 ? "" : "s"}`, cls: "hero" },
+    { icon: "late", label: "Overdue", value: od.value, sub: overdue.length ? `${overdue.length} invoice${overdue.length === 1 ? "" : "s"} late` : "Nothing late", cls: overdue.length ? "bad" : "" },
+    { icon: "paid", label: "Collected", value: pd.value, sub: pd.extra ? `+ ${pd.extra}` : `${paid.length} paid`, cls: "ok" },
+    { icon: "docs", label: "Invoices", value: String(invoices.filter((r) => r.status !== "CANCELLED").length), sub: "in PayPal", cls: "" },
   ];
-  $("#kpis").innerHTML = tiles.map((t) => `<div class="kpi ${t.cls || ""}"><div class="label">${t.label}</div><div class="value">${esc(t.value)}</div><div class="sub">${esc(t.sub)}</div></div>`).join("");
+  $("#kpis").innerHTML = tiles.map((t) => `<div class="kpi ${t.cls}"><div class="label"><svg viewBox="0 0 24 24" aria-hidden="true">${ICON[t.icon]}</svg>${t.label}</div><div class="value">${esc(t.value)}</div><div class="sub">${esc(t.sub)}</div></div>`).join("");
 }
 
 // ---------- chat ----------
@@ -193,7 +198,7 @@ async function send(text) {
   addMsg("user", text, images);
   const typing = document.createElement("div");
   typing.className = "typing";
-  typing.innerHTML = "<i></i><i></i><i></i> Working with PayPal…";
+  typing.innerHTML = "<span class=\"dots\"><i></i><i></i><i></i></span> Reading it and checking PayPal…";
   thread.append(typing);
   scrollDown();
   try {
@@ -212,9 +217,11 @@ async function send(text) {
       s.textContent = "✓ " + uniq.join(" · ");
       thread.append(s);
     }
-    if (data.reply) addMsg("bot", data.reply);
+    const replyEl = data.reply ? addMsg("bot", data.reply) : null;
     for (const a of data.actions || []) thread.append(renderAction(a));
-    scrollDown();
+    // Show the reply and the top of the first draft (the "AI read this as" note), not the card's bottom.
+    if ((data.actions || []).length && replyEl) thread.scrollTop = Math.max(0, replyEl.offsetTop - thread.offsetTop - 12);
+    else scrollDown();
   } catch (err) {
     typing.remove();
     addMsg("bot", err.message).classList.add("error");
@@ -252,7 +259,8 @@ function renderAction(a) {
   card.className = "card";
   card.dataset.id = a.id;
   const title = { invoice: "Invoice draft", reminder: "Payment reminder", cancel: "Cancel invoice", payment: "Record payment" }[a.type];
-  card.innerHTML = `<div class="card-head"><strong>${title}</strong><span class="pill pending">Needs approval</span></div><div class="card-body"></div>
+  card.className = `card ${a.type === "invoice" ? "slip" : ""}`;
+  card.innerHTML = `<div class="card-head"><strong><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 3h7l4 4v14H7z M14 3v4h4 M10 12h5 M10 16h5"/></svg>${title}</strong><span class="pill pending">Needs your approval</span></div><div class="card-body"></div>
     <div class="card-actions"><button class="btn ghost" data-act="reject">Discard</button><button class="btn primary" data-act="approve"></button></div>`;
   const body = $(".card-body", card);
   const approveBtn = $('[data-act="approve"]', card);
@@ -261,7 +269,8 @@ function renderAction(a) {
   if (a.type === "invoice") {
     approveBtn.textContent = "Approve & send";
     body.innerHTML = `
-      ${p.reasoning ? `<div class="why">${esc(p.reasoning)}</div>` : ""}
+      ${p.reasoning ? `<div class="why"><b>AI read this as</b>${esc(p.reasoning)}</div>` : ""}
+      <div class="slip-label">Bill to</div>
       <div class="fields">
         <label class="field"><span>Client name</span><input name="recipient_name" value="${esc(p.recipient_name)}"></label>
         <label class="field"><span>Email</span><input name="recipient_email" type="email" value="${esc(p.recipient_email)}"></label>
@@ -272,7 +281,7 @@ function renderAction(a) {
       </div>
       <table class="items"><thead><tr><th>Item</th><th class="num">Qty</th><th class="num">Rate</th></tr></thead><tbody></tbody></table>
       <label class="field wide"><span>Note to client</span><textarea name="note">${esc(p.note || "")}</textarea></label>
-      <div class="total"><span class="summary">${[p.discount_percent ? `${p.discount_percent}% discount` : "", p.tax_percent ? `${p.tax_percent}% tax` : ""].filter(Boolean).join(" · ") || "Total"}</span><b class="tot"></b></div>
+      <div class="total"><span class="summary">${[p.discount_percent ? `${p.discount_percent}% discount` : "", p.tax_percent ? `${p.tax_percent}% tax` : ""].filter(Boolean).join(" · ") || "Total due"}</span><b class="tot"></b></div>
       <div class="err"></div>`;
     const tbody = $("tbody", body);
     p.items.forEach((it) => tbody.append(itemRow(it)));
